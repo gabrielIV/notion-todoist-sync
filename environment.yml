@@ -1,0 +1,12 @@
+name: notion-todoist-sync
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - notion-client
+      - todoist-api-python
+      - todoist-python
+      - python-dotenv
