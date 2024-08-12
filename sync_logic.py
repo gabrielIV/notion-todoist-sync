@@ -2,9 +2,11 @@ import logging
 from datetime import datetime, timezone
 from notion_handler import (update_notion_variable, create_notion_task,
                             update_notion_task, create_notion_project, update_notion_project, notion, get_notion_priority,
-                            get_notion_project_by_todoist_id, get_notion_task_by_todoist_id)
+                            get_notion_project_by_todoist_id, get_notion_task_by_todoist_id, get_notion_project_by_id, get_notion_task_by_id
+                            )
 from todoist_handler import TodoistSync
 from config import NOTION_TASKS_DB_ID
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,8 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
         projects_index[project["notion_id"]] = project["todoist_id"]
 
     for task in notion_tasks:
+
+        print(json.dumps(task, indent=2))
         # Ensure todoist_project_id is defined, using the index first
         if not task["todoist_project_id"]:
             task["todoist_project_id"] = projects_index.get(task["project_id"])
@@ -43,6 +47,7 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
                 tasks_index[task["parent_id"]] = task["todoist_parent_id"]
 
         if not task["todoist_id"]:
+            # Create a new task in Todoist and set TodoistID
             task["todoist_id"] = todoist_api.add_task(
                 content=task["title"],
                 project_id=task["todoist_project_id"],
@@ -51,11 +56,14 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
                 parent_id=task["todoist_parent_id"]
             )
         else:
+            # Check for changes before updating
             todoist_task = todoist_api.get_task(task["todoist_id"])
             if (task["title"] != todoist_task["content"] or
                 task["due_date"] != todoist_task["due"].get("date") or
                 task["priority"] != todoist_task["priority"] or
                     task["todoist_parent_id"] != todoist_task.get("parent_id")):
+
+                # Update the task in Todoist
                 todoist_api.update_task(
                     task["todoist_id"],
                     content=task["title"],
@@ -78,17 +86,17 @@ def sync_todoist_to_notion(todoist_state):
         if not notion_project:
             # Create a new project in Notion and set TodoistID
             new_project_id = create_notion_project(project)
-            update_notion_project(
-                new_project_id,  # Update the newly created project
-                {"TodoistID": {"rich_text": [
-                    {"text": {"content": project["id"]}}]}}
-            )
+            # update_notion_project(
+            #     new_project_id,  # Update the newly created project
+            #     {"TodoistID": {"rich_text": [
+            #         {"text": {"content": project["id"]}}]}}
+            # )
         else:
             # Check for changes before updating
             if project["name"] != notion_project["name"]:
                 update_notion_project(
                     notion_project["notion_id"],
-                    {"Name": {
+                    {"Project name": {
                         "title": [{"text": {"content": project["name"]}}]}}
                 )
 
@@ -124,11 +132,11 @@ def sync_todoist_to_notion(todoist_state):
                 update_notion_task(
                     notion_task["notion_id"],
                     {
-                        "Name": {"title": [{"text": {"content": task["content"]}}]},
-                        "Due Date": {"date": {"start": task["due"]["date"]}} if task.get("due") else None,
+                        "Task name": {"title": [{"text": {"content": task["content"]}}]},
+                        "Due": {"date": {"start": task["due"]["date"]}} if task.get("due") else None,
                         "Status": {"select": {"name": task_status}},
                         "Project": {"relation": [{"id": project_id}]} if project_id else None,
-                        "Parent": {"relation": [{"id": parent_id}]} if parent_id else None
+                        "Parent-task": {"relation": [{"id": parent_id}]} if parent_id else None
                     }
                 )
 

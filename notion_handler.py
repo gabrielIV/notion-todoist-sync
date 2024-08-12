@@ -1,6 +1,7 @@
 from notion_client import Client as NotionClient
 from datetime import datetime, timezone
 from config import NOTION_TOKEN, NOTION_TASKS_DB_ID, NOTION_PROJECTS_DB_ID, NOTION_VARIABLES_DB_ID
+import json
 
 notion = NotionClient(auth=NOTION_TOKEN)
 
@@ -41,6 +42,8 @@ def update_notion_variable(variable_name, value):
 
 def create_notion_task(todoist_task, project_id=None, parent_id=None, todoist_project_id=None):
     """Creates a new task in the Notion tasks database."""
+
+    json.dumps(todoist_task)
     new_page = notion.pages.create(
         parent={"database_id": NOTION_TASKS_DB_ID},
         properties={
@@ -71,6 +74,8 @@ def get_notion_tasks(last_updated_date):
         }
     )
     tasks = []
+
+    json.dump(results, open("data/notion_tasks.json", "w"))
     for page in results["results"]:
         task = {
             "notion_id": page["id"],
@@ -86,6 +91,8 @@ def get_notion_tasks(last_updated_date):
             "last_edited_time": page["last_edited_time"],
         }
         tasks.append(task)
+
+    # json.dump(tasks, open("tasks.json", "w"))
     return tasks
 
 
@@ -94,8 +101,9 @@ def create_notion_project(todoist_project):
     new_page = notion.pages.create(
         parent={"database_id": NOTION_PROJECTS_DB_ID},
         properties={
-            "Name": {"title": [{"text": {"content": todoist_project["name"]}}]},
-            "TodoistID": {"rich_text": [{"text": {"content": todoist_project["id"]}}]}
+            "Project name": {"title": [{"text": {"content": todoist_project["name"]}}]},
+            "TodoistID": {"rich_text": [{"text": {"content": todoist_project["id"]}}]},
+            "Status": {"select": {"name": "In Progress"}}
         }
     )
     return new_page["id"]
@@ -116,6 +124,8 @@ def get_notion_projects(last_updated_date):
             "date": {"on_or_after": last_updated_date}
         }
     )
+
+    json.dump(results, open("data/notion_projects.json", "w"))
     projects = []
     for page in results["results"]:
         todoist_id = None
@@ -189,5 +199,33 @@ def get_notion_project_by_todoist_id(todoist_id):
             "notion_id": results["results"][0]["id"],
             "name": results["results"][0]["properties"]["Project name"]["title"][0]["text"]["content"],
             "todoist_id": results["results"][0]["properties"]["TodoistID"]["rich_text"][0]["plain_text"]
+        }
+    return None
+
+# Helper function to get task using todoist task id
+
+
+def get_notion_task_by_todoist_id(todoist_id):
+    """Retrieves a task from the Notion tasks database by its Todoist ID."""
+    results = notion.databases.query(
+        database_id=NOTION_TASKS_DB_ID,
+        filter={
+            "property": "TodoistID",
+            "rich_text": {"equals": todoist_id}
+        }
+    )
+    if results["results"]:
+        return {
+            "notion_id": results["results"][0]["id"],
+            "title": results["results"][0]["properties"]["Task name"]["title"][0]["plain_text"],
+            "status": results["results"][0]["properties"]["Status"]["status"]["name"],
+            "todoist_id": results["results"][0]["properties"]["TodoistID"]["rich_text"][0]["plain_text"],
+            "due_date": results["results"][0]["properties"]["Due"]["date"]["start"] if results["results"][0]["properties"]["Due"]["date"] else None,
+            "project_id": results["results"][0]["properties"]["Project"]["relation"][0]["id"] if results["results"][0]["properties"]["Project"]["relation"] else None,
+            "todoist_project_id": results["results"][0]["properties"]["TodoistProjectID"]["rich_text"][0]["plain_text"] if results["results"][0]["properties"]["TodoistProjectID"]["rich_text"] else None,
+            "todoist_parent_id": results["results"][0]["properties"]["TodoistParentID"]["rich_text"][0]["plain_text"] if results["results"][0]["properties"]["TodoistParentID"]["rich_text"] else None,
+            "parent_id": results["results"][0]["properties"]["Parent-task"]["relation"][0]["id"] if results["results"][0]["properties"]["Parent-task"]["relation"] else None,
+            "priority": get_notion_priority(results["results"][0]["properties"]["Priority"]["select"]["name"] if results["results"][0]["properties"]["Priority"]["select"] else None),
+            "last_edited_time": results["results"][0]["last_edited_time"],
         }
     return None

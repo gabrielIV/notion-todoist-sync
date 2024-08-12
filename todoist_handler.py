@@ -1,6 +1,7 @@
 import requests
 import json
 import uuid
+from notion_handler import update_notion_task, update_notion_project
 
 
 class TodoistSync:
@@ -26,6 +27,23 @@ class TodoistSync:
             response_data = response.json()
             self.sync_token = response_data["sync_token"]
             self.commands = []  # Clear commands after successful sync
+
+            # update new_projects and new_items IDs in notion
+            created_updated_projects = response_data.get("projects", [])
+            created_updated_items = response_data.get("items", [])
+            new_projects = [
+                project for project in created_updated_projects if project.get("is_new", False)
+            ]
+            new_items = [
+                item for item in created_updated_items if item.get("is_new", False)
+            ]
+
+            for project in new_projects:
+                update_notion_project(project["id"], {"TodoistID": {
+                    "rich_text": [{"text": {"content": project["id"]}}]}})
+            for item in new_items:
+                update_notion_task(item["id"], {"TodoistID": {
+                    "rich_text": [{"text": {"content": item["id"]}}]}})
 
             return response_data
         else:

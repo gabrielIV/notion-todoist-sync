@@ -1,8 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from notion_handler import get_notion_variable, get_notion_tasks, get_notion_projects, update_notion_variable
-from todoist_handler import sync_todoist
+from todoist_handler import TodoistSync
 from sync_logic import sync_notion_to_todoist, sync_todoist_to_notion
+from config import TODOIST_TOKEN
+import json
+
 
 # Configure logging
 logging.basicConfig(
@@ -18,10 +21,17 @@ def main():
 
     try:
         # Initialize TodoistSync object
-        todoist_api = TodoistSync("YOUR_TODOIST_API_TOKEN")
+        todoist_api = TodoistSync(TODOIST_TOKEN)
+
+        # get the sync token from Notion variables
+        todoist_api.sync_token = get_notion_variable(
+            "todoist_sync_token") or "*"  # "*" means full sync
 
         # Initial sync to get projects and items
         initial_sync_result = todoist_api.sync()
+
+        json.dump(initial_sync_result, open(
+            "data/todoist_sync_result.json", "w"))
 
         logger.info("Fetching Notion variables")
         notion_task_last_updated = get_notion_variable(
@@ -42,7 +52,7 @@ def main():
         logger.info("Notion to Todoist sync completed")
 
         logger.info("Syncing Todoist to Notion")
-        sync_todoist_to_notion(initial_sync_result, notion_projects)
+        sync_todoist_to_notion(initial_sync_result)
         logger.info("Todoist to Notion sync completed")
 
         # Update Notion variables with new timestamps and sync_token
