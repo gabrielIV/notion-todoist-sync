@@ -19,9 +19,12 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
 
     for project in notion_projects:
         if not project["todoist_id"]:
-            project["todoist_id"] = todoist_api.add_project(project["name"])
+            project["todoist_id"] = todoist_api.add_project(project["name"],notion_id=project["notion_id"])
         else:
             todoist_project = todoist_api.get_project(project["todoist_id"])
+            if not project["name"]:
+                project["name"]="Unassigned"
+            print(json.dumps(todoist_project, indent=2))
             if project["name"] != todoist_project["name"]:
                 todoist_api.update_project(
                     project["todoist_id"], name=project["name"])
@@ -53,13 +56,19 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
                 project_id=task["todoist_project_id"],
                 due={"string": task["due_date"]} if task["due_date"] else None,
                 priority=task["priority"],
-                parent_id=task["todoist_parent_id"]
+                parent_id=task["todoist_parent_id"],
+                notion_id=task["notion_id"]
             )
         else:
             # Check for changes before updating
             todoist_task = todoist_api.get_task(task["todoist_id"])
+            if not todoist_task:
+                logger.warning(
+                    f"Task {task['title']} not found in Todoist. Skipping update.")
+                continue
+            
             if (task["title"] != todoist_task["content"] or
-                task["due_date"] != todoist_task["due"].get("date") or
+                task["due_date"] != todoist_task["due"]["date"] if todoist_task.get("due") else None or
                 task["priority"] != todoist_task["priority"] or
                     task["todoist_parent_id"] != todoist_task.get("parent_id")):
 
@@ -75,7 +84,8 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
 
         tasks_index[task["notion_id"]] = task["todoist_id"]
 
-    todoist_api.sync()
+    final_sync_results=todoist_api.sync()
+    json.dump(final_sync_results, open("data/todoist_sync_result.json", "w"))
 
 
 def sync_todoist_to_notion(todoist_state):
@@ -95,8 +105,8 @@ def sync_todoist_to_notion(todoist_state):
             # Check for changes before updating
             if project["name"] != notion_project["name"]:
                 update_notion_project(
-                    notion_project["notion_id"],
-                    {"Project name": {
+                    page_id=notion_project["notion_id"],
+                    properties={"Project name": {
                         "title": [{"text": {"content": project["name"]}}]}}
                 )
 
@@ -115,13 +125,14 @@ def sync_todoist_to_notion(todoist_state):
             notion_parent_task = get_notion_task_by_todoist_id(
                 task["parent_id"])
             if notion_parent_task:
-                parent_id = notion_parent_task["notion_id"]
+                notion_parent_task = notion_parent_task["notion_id"]
+                
 
         task_status = get_todoist_task_status(task)
 
         if not notion_task:
             # Create a new task in Notion
-            new_task_id = create_notion_task(
+            create_notion_task(
                 task, project_id, parent_id, task["project_id"])
 
         else:
@@ -130,8 +141,8 @@ def sync_todoist_to_notion(todoist_state):
                 (task.get("due") and task["due"]["date"] != notion_task["due_date"]) or
                     task_status != notion_task["status"]):
                 update_notion_task(
-                    notion_task["notion_id"],
-                    {
+                    page_id = notion_task["notion_id"],
+                    properties={
                         "Task name": {"title": [{"text": {"content": task["content"]}}]},
                         "Due": {"date": {"start": task["due"]["date"]}} if task.get("due") else None,
                         "Status": {"select": {"name": task_status}},

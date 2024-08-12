@@ -28,64 +28,71 @@ class TodoistSync:
             self.sync_token = response_data["sync_token"]
             self.commands = []  # Clear commands after successful sync
 
-            # update new_projects and new_items IDs in notion
-            created_updated_projects = response_data.get("projects", [])
-            created_updated_items = response_data.get("items", [])
-            new_projects = [
-                project for project in created_updated_projects if project.get("is_new", False)
-            ]
-            new_items = [
-                item for item in created_updated_items if item.get("is_new", False)
-            ]
-
-            for project in new_projects:
-                update_notion_project(project["id"], {"TodoistID": {
-                    "rich_text": [{"text": {"content": project["id"]}}]}})
-            for item in new_items:
-                update_notion_task(item["id"], {"TodoistID": {
-                    "rich_text": [{"text": {"content": item["id"]}}]}})
-
             return response_data
         else:
             raise Exception(
                 f"Sync failed with status code: {response.status_code}")
 
-    def add_project(self, name):
-        """Adds a project to the command queue."""
-        temp_id = str(uuid.uuid4())
+    def _create_command(self, command_type, args, notion_id=None):
+        """Creates and executes a command directly without using the command queue."""
+        headers = {"Authorization": f"Bearer {self.api_token}"}
         command = {
-            "type": "project_add",
-            "temp_id": temp_id,
+            "type": command_type,
+            "temp_id": str(uuid.uuid4()),
             "uuid": str(uuid.uuid4()),
-            "args": {"name": name},
+            "args": args
         }
-        self.commands.append(command)
-        return temp_id
+        data = {
+            "sync_token": "*",  # Use "*" for immediate execution
+            "resource_types": json.dumps(["projects", "items"]),
+            "commands": json.dumps([command]),
+        }
+
+        response = requests.post(
+            "https://api.todoist.com/sync/v9/sync", headers=headers, data=data
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            temp_id = command["temp_id"]
+            new_id = response_data["temp_id_mapping"][temp_id]
+
+            # Update Notion with the new ID
+            if notion_id:
+                if command_type == "project_add":
+                    update_notion_project(page_id=notion_id, properties={"TodoistID": {
+                        "rich_text": [{"text": {"content": new_id}}]}})
+                elif command_type == "item_add":
+                    update_notion_task(page_id=notion_id, properties={"TodoistID": {
+                        "rich_text": [{"text": {"content": new_id}}]}})
+
+            return response_data
+        else:
+            raise Exception(
+                f"Command execution failed with status code: {response.status_code}")
+
+    def add_project(self, name, notion_id=None):
+        """Adds a project directly."""
+        return self._create_command("project_add", {"name": name}, notion_id)
 
     def add_task(self, content, project_id=None, due=None, priority=None, parent_id=None,
                  child_order=None, section_id=None, day_order=None, collapsed=None, labels=None,
                  assigned_by_uid=None, responsible_uid=None, auto_reminder=None, auto_parse_labels=None,
-                 duration=None, description=None):
-        """Adds a task to the command queue."""
-        temp_id = str(uuid.uuid4())
-        command = {
-            "type": "item_add",
-            "temp_id": temp_id,
-            "uuid": str(uuid.uuid4()),
-            "args": {"content": content},
-        }
+                 duration=None, description=None, notion_id=None):
+        """Adds a task directly."""
+        args = {"content": content}
         if project_id:
-            command["args"]["project_id"] = project_id
+            args["project_id"] = project_id
         if due:
-            command["args"]["due"] = due
+            args["due"] = due
         if priority:
-            command["args"]["priority"] = priority
+            args["priority"] = priority
         if parent_id:
-            command["args"]["parent_id"] = parent_id
+            args["parent_id"] = parent_id
         # ... (add other optional parameters as needed)
 
-        self.commands.append(command)
-        return temp_id
+        return self._create_command("item_add", args, notion_id)
+
 
     def update_task(self, task_id, content=None, due=None, priority=None, parent_id=None,
                     # ... other optional parameters
@@ -136,8 +143,10 @@ class TodoistSync:
             response_data = response.json()
             return response_data["project"]
         else:
-            raise Exception(
-                f"Failed to retrieve project: {response.status_code}")
+            # raise Exception(
+            #     f"Failed to retrieve project: {response.status_code}")
+            print(f"Failed to retrieve project: {response.status_code}")
+            return None
 
     def get_task(self, task_id):
         """Retrieves a task from Todoist."""
@@ -152,4 +161,6 @@ class TodoistSync:
             response_data = response.json()
             return response_data["item"]
         else:
-            raise Exception(f"Failed to retrieve task: {response.status_code}")
+            # raise Exception(f"Failed to retrieve task: {response.status_code}")
+            print(f"Failed to retrieve task: {response.status_code}")
+            return None
