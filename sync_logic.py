@@ -25,6 +25,7 @@ def sync_notion_to_todoist(notion_tasks, notion_projects, todoist_api):
             if not project["name"]:
                 project["name"]="Unassigned"
             print(json.dumps(todoist_project, indent=2))
+            print(json.dumps(project, indent=2))
             if project["name"] != todoist_project["name"]:
                 todoist_api.update_project(
                     project["todoist_id"], name=project["name"])
