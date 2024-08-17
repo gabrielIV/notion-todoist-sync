@@ -1,117 +1,103 @@
-# Notion-Todoist Sync
+# Notion-Todoist Synchronization
 
-This project synchronizes tasks and projects between Notion and Todoist.
+This project provides a Python script to synchronize tasks and projects between Notion and Todoist. It uses the Notion API and the Todoist Sync API to keep your data consistent across both platforms.
 
-## Setup
+## Features
 
-### Prerequisites
+- **Two-way Synchronization:** Synchronizes changes from Notion to Todoist and vice versa.
+- **Project Synchronization:** Creates, updates, and deletes projects in both Notion and Todoist.
+- **Task Synchronization:** Creates, updates, and deletes tasks in both Notion and Todoist, including task details such as title, due date, status, and priority.
+- **Error Handling:** Includes error handling to gracefully handle unexpected situations and provide helpful error logs.
+- **Scheduled Execution:** Can be scheduled to run automatically using GitHub Actions.
+- **Manual Triggers:** Allows manual triggering of the synchronization process.
+- **Secrets Management:** Uses GitHub Secrets to securely store API tokens and other sensitive information.
 
-- [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your system.
+## Prerequisites
 
-### Creating and Activating the Conda Environment
+- **Python 3.x:** Make sure you have Python 3 installed on your system.
+- **Notion API Token:** Obtain an API token from your Notion integration settings.
+- **Todoist API Token:** Obtain an API token from your Todoist account settings.
+- **Notion Database IDs:** Identify the IDs of your Notion databases for tasks, projects, and variables.
+- **GitHub Account:** Required if you want to use GitHub Actions for scheduled execution.
 
-1. Clone this repository:
+## Installation
 
-   ```
-   git clone https://github.com/your-username/notion-todoist-sync.git
-   cd notion-todoist-sync
-   ```
+1. **Clone the repository:**
 
-2. Create the Conda environment from the `environment.yml` file:
-
-   ```
-   conda env create -f environment.yml
-   ```
-
-3. Activate the environment:
-
-   - On Windows:
-
-     ```
-     conda activate notion-todoist-sync
-     ```
-
-   - On macOS and Linux:
-     ```
-     source activate notion-todoist-sync
-     ```
-
-   Note: If the above command doesn't work, try:
-
-   ```
-   conda activate notion-todoist-sync
+   ```bash
+   git clone https://github.com/gabrielIV/notion-todoist-sync.git
    ```
 
-   You should see `(notion-todoist-sync)` at the beginning of your command prompt, indicating that the environment is active.
+2. **Create a virtual environment (recommended):**
 
-4. Verify the environment is activated:
-   ```
-   conda info --envs
-   ```
-   The active environment should have an asterisk (\*) next to it.
-
-Important: Always make sure to activate the Conda environment before running the script or installing additional packages. You'll need to activate the environment each time you open a new terminal window or start a new session.
-
-### Setting Environment Variables
-
-[... rest of the environment variables section ...]
-
-## Running the Sync
-
-1. Ensure your Conda environment is activated:
-
-   ```
-   conda activate notion-todoist-sync
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
 
-2. Run the synchronization script:
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
    ```
+
+## Configuration
+
+1. **Create a `.env` file:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit the `.env` file:**
+
+   - Replace the placeholders with your actual API tokens and database IDs:
+
+   ```
+   NOTION_TOKEN=your_notion_api_token
+   TODOIST_API_TOKEN=your_todoist_api_token
+   NOTION_TASKS_DB_ID=your_notion_tasks_database_id
+   NOTION_PROJECTS_DB_ID=your_notion_projects_database_id
+   NOTION_VARIABLES_DB_ID=your_notion_variables_database_id
+   ```
+
+## Usage
+
+### Manual Execution
+
+1. **Activate the virtual environment (if you created one):**
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+2. **Run the script:**
+   ```bash
    python main.py
    ```
 
-## Development
+### Scheduled Execution with GitHub Actions
 
-If you need to add new dependencies:
+1. **Set up secrets in your GitHub repository:**
 
-1. Activate the Conda environment:
+   - Go to your repository on GitHub.
+   - Navigate to "Settings" -> "Secrets and variables" -> "Actions".
+   - Click "New repository secret".
+   - For each environment variable in the `.env` file, create a corresponding secret with the same name and its value.
 
-   ```
-   conda activate notion-todoist-sync
-   ```
+2. **Commit and push the changes to your repository.**
 
-2. Add the dependency to `environment.yml`
+The workflow defined in `.github/workflows/main.yml` will run automatically every hour.
 
-3. Update the environment:
-   ```
-   conda env update -f environment.yml --prune
-   ```
+## Contributing
 
-## Deactivating the Environment
+Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
 
-When you're done working on the project, you can deactivate the Conda environment:
+## License
 
-```
-conda deactivate
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Troubleshooting
+## Acknowledgments
 
-If you encounter any issues, ensure:
-
-- Your Conda environment is activated before running the script or installing packages.
-- Your API tokens are correct and have the necessary permissions.
-- Your Notion databases are set up correctly.
-- You're using the correct database IDs.
-- Environment variables are set correctly and accessible to the script.
-
-If you're having trouble activating the environment, try:
-
-- Closing and reopening your terminal.
-- Updating Conda: `conda update -n base -c defaults conda`
-- Reinstalling the environment:
-  ```
-  conda remove --name notion-todoist-sync --all
-  conda env create -f environment.yml
-  ```
-
-For any other issues, please open an issue on the GitHub repository.
+- **Notion API:** [https://developers.notion.com/](https://developers.notion.com/)
+- **Todoist Sync API:** [https://developer.todoist.com/sync/v9/](https://developer.todoist.com/sync/v9/)
+- **GitHub Actions:** [https://github.com/features/actions](https://github.com/features/actions)

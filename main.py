@@ -1,19 +1,9 @@
-import logging
 from datetime import datetime, timezone
 from notion_handler import get_notion_variable, get_notion_tasks, get_notion_projects, update_notion_variable
 from todoist_handler import TodoistSync
 from sync_logic import sync_notion_to_todoist, sync_todoist_to_notion
-from config import TODOIST_TOKEN
+from config import TODOIST_TOKEN, logger
 import json
-
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
 
 
 def main():

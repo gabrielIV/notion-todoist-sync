@@ -1,6 +1,6 @@
 from notion_client import Client as NotionClient
 from datetime import datetime, timezone
-from config import NOTION_TOKEN, NOTION_TASKS_DB_ID, NOTION_PROJECTS_DB_ID, NOTION_VARIABLES_DB_ID
+from config import NOTION_TOKEN, NOTION_TASKS_DB_ID, NOTION_PROJECTS_DB_ID, NOTION_VARIABLES_DB_ID, logger
 import json
 
 notion = NotionClient(auth=NOTION_TOKEN)
@@ -20,6 +20,8 @@ def get_notion_variable(variable_name):
 
 def update_notion_variable(variable_name, value):
     """Updates or creates a variable in the Notion variables database."""
+
+    logger.info(f"Updating variable: {variable_name}")
     response = notion.databases.query(
         database_id=NOTION_VARIABLES_DB_ID,
         filter={"property": "Name", "title": {"equals": variable_name}}
@@ -43,26 +45,24 @@ def update_notion_variable(variable_name, value):
 def create_notion_task(todoist_task, project_id=None, parent_id=None, todoist_project_id=None):
     """Creates a new task in the Notion tasks database."""
 
-    print(json.dumps(todoist_task,indent=4))
+    logger.info(f"Creating new Notion task: {todoist_task['content']}")
 
     properties = {
-            "Task name": {"title": [{"text": {"content": todoist_task["content"]}}]},
-            "Status": {"status": {"name": "Done" if todoist_task["checked"] else "Not Started"}},
-            "TodoistID": {"rich_text": [{"text": {"content": todoist_task["id"]}}]},
-            "TodoistProjectID": {"rich_text": [{"text": {"content": str(todoist_project_id)}}]} if todoist_project_id else None,
-            # "Due": {"date": {"start": todoist_task["due"]["date"]}} if todoist_task.get("due") else None,
-            "Project": {"relation": [{"id": project_id}]} if project_id else None,
-            # "Parent-task": {"relation": [{"id": parent_id}]} if parent_id else None
-        }
-    
+        "Task name": {"title": [{"text": {"content": todoist_task["content"]}}]},
+        "Status": {"status": {"name": "Done" if todoist_task["checked"] else "Not Started"}},
+        "TodoistID": {"rich_text": [{"text": {"content": todoist_task["id"]}}]},
+        "TodoistProjectID": {"rich_text": [{"text": {"content": str(todoist_project_id)}}]} if todoist_project_id else None,
+        # "Due": {"date": {"start": todoist_task["due"]["date"]}} if todoist_task.get("due") else None,
+        "Project": {"relation": [{"id": project_id}]} if project_id else None,
+        # "Parent-task": {"relation": [{"id": parent_id}]} if parent_id else None
+    }
+
     if todoist_task.get("due"):
         properties["Due"] = {"date": {"start": todoist_task["due"]["date"]}}
 
     if parent_id:
         properties["Parent-task"] = {"relation": [{"id": parent_id}]}
-    
 
-    print(json.dumps(properties,indent=2))
     new_page = notion.pages.create(
         parent={"database_id": NOTION_TASKS_DB_ID},
         properties=properties
@@ -72,6 +72,8 @@ def create_notion_task(todoist_task, project_id=None, parent_id=None, todoist_pr
 
 def update_notion_task(page_id=None, properties=None, todoist_id=None):
     """Updates an existing task in the Notion tasks database."""
+    logger.info(
+        f"Updating Notion task: {page_id}")
     if not page_id:
         page_id = get_notion_task_by_todoist_id(todoist_id)["notion_id"]
     notion.pages.update(page_id=page_id, properties=properties)
@@ -111,9 +113,7 @@ def get_notion_tasks(last_updated_date):
 
 def create_notion_project(todoist_project):
     """Creates a new project in the Notion projects database."""
-    print("creating notion project")
-    # print(json.dumps(todoist_project,indent=4))
-
+    logger.info(f"Creating new project: {todoist_project['name']}")
 
     new_page = notion.pages.create(
         parent={"database_id": NOTION_PROJECTS_DB_ID},
@@ -128,8 +128,11 @@ def create_notion_project(todoist_project):
 
 def update_notion_project(todoist_project_id=None, properties=None, page_id=None):
     """Updates an existing project in the Notion projects database."""
+    logger.info(
+        f"Updating Notion project: {todoist_project_id}")
     if not page_id:
-        page_id = get_notion_project_by_todoist_id(todoist_project_id)["notion_id"]
+        page_id = get_notion_project_by_todoist_id(
+            todoist_project_id)["notion_id"]
     notion.pages.update(page_id=page_id, properties=properties)
 
 
